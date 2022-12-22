@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 export default function App() {
 	const [currentQuestion, setCurrentQuestion] = useState(0);
 	const [inputValue, setInputValue] = useState('');
+	const [clueTries, setClueTries] = useState(0);
+	const [penalty, setPenalty] = useState(0);
 
 	const questions = [
 		{
@@ -34,15 +36,30 @@ export default function App() {
 
 	const handleAnswerButtonClick = event => {
 		const nextQuestion = currentQuestion + 1;
-
+		let correct = false;
+		console.log(clueTries);
 		for (let i = 0; i < questions[currentQuestion].answerOptions.length; i++) {
 			if (inputValue === questions[currentQuestion].answerOptions[i].answerText) {
 				setInputValue('');
+				correct = true;
 				if (nextQuestion < questions.length) {
 					setCurrentQuestion(nextQuestion);
 				}
 			}
 		}
+		if (!correct) {
+			setClueTries(clueTries + 1);
+		} else {
+			setClueTries(0);
+		}
+
+		if (clueTries === 2) {
+			setInputValue('');
+			setClueTries(0);
+			setCurrentQuestion(nextQuestion);
+			setPenalty(penalty + 5);
+		} 
+		
 		event.preventDefault();
 	}
 
@@ -63,6 +80,9 @@ export default function App() {
 					<input type="text" value={inputValue} onChange={handleChange} />
 					<input type="submit" value={'Submit'} className = "submitBtn"/>
 				</form>
+				<div>
+					<span>Penalty: {penalty}</span>
+				</div>
 			</div>
 		</div>
 	);
