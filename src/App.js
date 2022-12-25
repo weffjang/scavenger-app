@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
+import { collection, addDoc } from "firebase/firestore";
+import { db } from './firebase';
 
 export default function App() {
 	const [currentQuestion, setCurrentQuestion] = useState(0);
 	const [inputValue, setInputValue] = useState('');
 	const [clueTries, setClueTries] = useState(0);
 	const [penalty, setPenalty] = useState(0);
+	const [wrong, setWrong] = useState(false);
+	const [scavState, setScavState] = useState('onboard');
+
+	const Wrong = () => (
+		<div id="wrong" className="wrong-text">
+			Incorrect. {3 - clueTries} tries left.
+		</div>
+	)
 
 	const questions = [
 		{
@@ -49,8 +59,10 @@ export default function App() {
 		}
 		if (!correct) {
 			setClueTries(clueTries + 1);
+			setWrong(true);
 		} else {
 			setClueTries(0);
+			setWrong(false);
 		}
 
 		if (clueTries === 2) {
@@ -58,7 +70,9 @@ export default function App() {
 			setClueTries(0);
 			setCurrentQuestion(nextQuestion);
 			setPenalty(penalty + 5);
-		} 
+		}
+		
+		saveData();
 		
 		event.preventDefault();
 	}
@@ -66,6 +80,17 @@ export default function App() {
 	const handleChange = event => {
 		setInputValue(event.target.value);
 	}
+
+	const saveData = async (e) => {       
+        try {
+            const docRef = await addDoc(collection(db, "team"), {
+              name: "test",    
+            });
+            console.log("Document written with ID: ", docRef.id);
+    	} catch (e) {
+        	console.error("Error adding document: ", e);
+        }
+    }
 
 	return (
 		<div className='app'>
@@ -80,6 +105,9 @@ export default function App() {
 					<input type="text" value={inputValue} onChange={handleChange} />
 					<input type="submit" value={'Submit'} className = "submitBtn"/>
 				</form>
+				<div>
+					{ wrong ? <Wrong /> : null }
+				</div>
 				<div>
 					<span>Penalty: {penalty}</span>
 				</div>
