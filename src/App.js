@@ -1,20 +1,32 @@
-import React, { useState } from 'react';
-import { collection, addDoc } from "firebase/firestore";
+import React, { useState, useEffect } from 'react';
+import { doc, setDoc } from "firebase/firestore";
 import { db } from './firebase';
+import { isEqual } from 'lodash';
 
 export default function App() {
 	const [currentQuestion, setCurrentQuestion] = useState(0);
+	const [currentSignUp, setSignUpState] = useState(0);
 	const [inputValue, setInputValue] = useState('');
 	const [clueTries, setClueTries] = useState(0);
 	const [penalty, setPenalty] = useState(0);
 	const [wrong, setWrong] = useState(false);
 	const [scavState, setScavState] = useState('onboard');
-
+	const [btnClick, setBtnClick] = useState(false);
+	const [prevData, setPrevData] = useState({});
+	const [teamData, setTeamData] = useState({
+		name: '',
+		color: '',
+		penalty: 0,
+		progress: 0
+	});
+	
 	const Wrong = () => (
-		<div id="wrong" className="wrong-text">
+		<div id="wrong" className="incorrect">
 			Incorrect. {3 - clueTries} tries left.
 		</div>
 	)
+	
+	const signUp = ['Enter your team name:','Enter your team color:']
 
 	const questions = [
 		{
@@ -47,46 +59,93 @@ export default function App() {
 	const handleAnswerButtonClick = event => {
 		const nextQuestion = currentQuestion + 1;
 		let correct = false;
-		console.log(clueTries);
-		for (let i = 0; i < questions[currentQuestion].answerOptions.length; i++) {
-			if (inputValue === questions[currentQuestion].answerOptions[i].answerText) {
-				setInputValue('');
-				correct = true;
-				if (nextQuestion < questions.length) {
-					setCurrentQuestion(nextQuestion);
-				}
-			}
-		}
-		if (!correct) {
-			setClueTries(clueTries + 1);
-			setWrong(true);
-		} else {
-			setClueTries(0);
-			setWrong(false);
-		}
-
-		if (clueTries === 2) {
-			setInputValue('');
-			setClueTries(0);
-			setCurrentQuestion(nextQuestion);
-			setPenalty(penalty + 5);
-		}
+		setPrevData(teamData);
+		setBtnClick(true);
 		
-		saveData();
+		switch (scavState) {
+			case 'onboard':
+				if (currentSignUp === 0) {
+					setTeamData({
+						...teamData,
+						name: inputValue,
+						progress: 1,
+					});
+					setInputValue('');
+					setSignUpState(1);
+				} else {
+					setTeamData({
+						...teamData,
+						color: inputValue,
+						progress: 2,
+					});
+					setInputValue('');
+					setScavState('clues');
+					// setTeam();
+				}
+				correct = true;
+				break;
+			case 'clues':
+				setTeamData({
+					...teamData,
+					progress: currentQuestion + 2,
+				})
+
+				for (let i = 0; i < questions[currentQuestion].answerOptions.length; i++) {
+					if (inputValue === questions[currentQuestion].answerOptions[i].answerText) {
+						setInputValue('');
+						correct = true;
+						if (nextQuestion < questions.length) {
+							setCurrentQuestion(nextQuestion);
+						}
+					}
+				}
+
+				if (!correct) {
+					setClueTries(clueTries + 1);
+					setWrong(true);
+				} else {
+					setClueTries(0);
+					setWrong(false);
+				}
+
+				if (clueTries === 2) {
+					setInputValue('');
+					setClueTries(0);
+					setCurrentQuestion(nextQuestion);
+					setTeamData({
+						...teamData,
+						penalty: penalty + 5,
+					});
+					setPenalty(penalty + 5);
+					setWrong(false);
+				}
+		
+				break;
+			default:
+				break;
+		}
 		
 		event.preventDefault();
 	}
+
+	useEffect(() => {
+		if (btnClick && teamData.progress > 1) {
+			console.log(prevData,teamData)
+			if (!isEqual(prevData,teamData)){
+				setTeam();
+				console.log('set');
+			}
+			setBtnClick(false);
+		}
+	})
 
 	const handleChange = event => {
 		setInputValue(event.target.value);
 	}
 
-	const saveData = async (e) => {       
+	const setTeam = async (e) => {       
         try {
-            const docRef = await addDoc(collection(db, "team"), {
-              name: "test",    
-            });
-            console.log("Document written with ID: ", docRef.id);
+			await setDoc(doc(db, "teams", teamData.name), teamData);
     	} catch (e) {
         	console.error("Error adding document: ", e);
         }
@@ -96,9 +155,22 @@ export default function App() {
 		<div className='app'>
 			<div className='question-section'>
 				<div className='question-count'>
-					<span>Clue {currentQuestion + 1}</span>/{questions.length}
+				{
+					{
+						'onboard': <span>Signup!</span>,
+						'clues': <span>Clue {currentQuestion + 1}/{questions.length}</span>
+					}[scavState]
+
+				}
 				</div>
-				<div className='question-text'>{questions[currentQuestion].questionText}</div>
+				<div className='question-text'>
+				{
+					{
+						'onboard': <span>{signUp[currentSignUp]}</span>,
+						'clues': <span>{questions[currentQuestion].questionText}</span>
+					}[scavState]
+				}
+				</div>
 			</div>
 			<div className='answer-section'>
 				<form onSubmit={handleAnswerButtonClick}>
