@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from './firebase';
 import { isEqual } from 'lodash';
 
@@ -11,13 +11,13 @@ export default function App() {
 	const [penalty, setPenalty] = useState(0);
 	const [wrong, setWrong] = useState(false);
 	const [scavState, setScavState] = useState('onboard');
-	const [btnClick, setBtnClick] = useState(false);
 	const [prevData, setPrevData] = useState({});
 	const [teamData, setTeamData] = useState({
 		name: '',
 		color: '',
 		penalty: 0,
-		progress: 0
+		progress: 0,
+		try: 0
 	});
 	
 	const Wrong = () => (
@@ -56,11 +56,12 @@ export default function App() {
 		},
 	];
 
-	const handleAnswerButtonClick = event => {
+	const handleAnswerButtonClick = async event => {
+		event.preventDefault();
+
 		const nextQuestion = currentQuestion + 1;
 		let correct = false;
 		setPrevData(teamData);
-		setBtnClick(true);
 		
 		switch (scavState) {
 			case 'onboard':
@@ -80,16 +81,10 @@ export default function App() {
 					});
 					setInputValue('');
 					setScavState('clues');
-					// setTeam();
 				}
 				correct = true;
 				break;
 			case 'clues':
-				setTeamData({
-					...teamData,
-					progress: currentQuestion + 2,
-				})
-
 				for (let i = 0; i < questions[currentQuestion].answerOptions.length; i++) {
 					if (inputValue === questions[currentQuestion].answerOptions[i].answerText) {
 						setInputValue('');
@@ -120,24 +115,37 @@ export default function App() {
 					setWrong(false);
 				}
 		
+				setTeamData({
+					...teamData,
+					progress: currentQuestion + 2,
+				})
 				break;
 			default:
 				break;
 		}
-		
-		event.preventDefault();
 	}
 
 	useEffect(() => {
-		if (btnClick && teamData.progress > 1) {
+		if (teamData.progress > 1) {
 			console.log(prevData,teamData)
 			if (!isEqual(prevData,teamData)){
 				setTeam();
 				console.log('set');
 			}
-			setBtnClick(false);
 		}
-	})
+	}, [teamData])
+
+	useEffect(() => {
+		getTeam();
+	}, [teamData.name])
+
+	useEffect(() => {
+		setTeamData({
+			...teamData,
+			try: clueTries
+		});
+	}, [clueTries])
+
 
 	const handleChange = event => {
 		setInputValue(event.target.value);
@@ -150,6 +158,21 @@ export default function App() {
         	console.error("Error adding document: ", e);
         }
     }
+
+	const getTeam = async (e) => {
+		try {
+			console.log(teamData.name);
+			const docRef = doc(db, "teams", teamData.name);
+			const docSnap = await getDoc(docRef);
+			console.log(docSnap.data());
+
+			if (docSnap.data() !== undefined) {
+				setScavState('clues');
+			}
+    	} catch (e) {
+        	console.error("Error reading document: ", e);
+        }
+	}
 
 	return (
 		<div className='app'>
